@@ -1069,12 +1069,12 @@
         }, []);
 
         const generateTitle = useCallback(async (firstMessage) => {
-          if (!currentChat) return;
+          if (!currentChat.value) return;
 
           const serverSettings = settings.value.server;
-          const prompt = `/no-think Generate a very short title (3-5 words max) for a chat that starts with:	"${firstMessage.substring(0, 100)}"`;
+          const prompt = `Generate only a very short title (3-5 words maximum, no explanations, no tags) for a chat that starts with: "${firstMessage.substring(0, 100)}". Output only the title text.`;
           const message = {
-            role:	'user',
+            role: 'user',
             content: prompt
           };
 
@@ -1097,15 +1097,32 @@
               })
             });
 
-            if (!response.ok) throw new Error('Failed	to generate title');
+            if (!response.ok) throw new Error('Failed to generate title');
 
             const data = await response.json();
             let title = data?.choices?.[0]?.message?.content || '';
-            title = title.replace(/["']/g, '').replace(/<think>.*?<\/think>/s, '').trim();
-            if (title) {
-              chats.value = chats.value.map(
-                chat => (chat.id === currentChat.value.id ? {...chat, title} : chat));
-              currentChat.value = {...currentChat.value, title};
+            // Remove think tags and fragments more aggressively
+            title = title
+              .replace(/<think>[\s\S]*?<\/think>/gi, '') // Remove complete think tags
+              .replace(/<\/?think>/gi, '') // Remove opening/closing think tags
+              .replace(/think>/gi, '') // Remove think> fragments
+              .replace(/\/think>/gi, '') // Remove /think> fragments
+              .replace(/["'`]/g, '') // Remove quotes
+              .replace(/<[^>]*>/g, '') // Remove any remaining HTML/XML tags
+              .replace(/^[^a-zA-Z0-9\s]+/, '') // Remove leading non-alphanumeric (keep spaces)
+              .replace(/[^a-zA-Z0-9\s]+$/, '') // Remove trailing non-alphanumeric (keep spaces)
+              .replace(/\s+/g, ' ') // Normalize multiple spaces to single space
+              .trim()
+              .substring(0, 50); // Ensure title doesn't exceed 50 characters
+
+            // Check if chat still exists before updating
+            if (title && currentChat.value) {
+              const chatExists = chats.value.some(chat => chat.id === currentChat.value.id);
+              if (chatExists) {
+                chats.value = chats.value.map(
+                  chat => (chat.id === currentChat.value.id ? {...chat, title} : chat));
+                currentChat.value = {...currentChat.value, title};
+              }
             }
           } catch (error) {
             console.error('Error generating title:', error);
