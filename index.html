@@ -93,6 +93,19 @@
                 .dark .message-children-mb .capitalize:nth-child(2) {
                   color: ${theme.colors.yellow?.[300]};
                 }
+                /* Custom color classes for message sender labels */
+                .sender-you {
+                  color: #3b82f6; /* blue-500 */
+                }
+                .sender-assistant {
+                  color: #10b981; /* emerald-500 */
+                }
+                .dark .sender-you {
+                  color: #60a5fa; /* blue-400 */
+                }
+                .dark .sender-assistant {
+                  color: #34d399; /* emerald-400 */
+                }
               `
             },
           }
@@ -838,7 +851,10 @@
           </div>
         `;
 
-        const header = html`<div class="capitalize font-semibold">${isUser ? "you" : message.role}</div>`;
+        const header = html`<div class=${clsx(
+          "capitalize font-semibold",
+          isUser ? "sender-you" : "sender-assistant"
+        )}>${isUser ? "you" : message.role}</div>`;
 
         return html`
           <div class="flex ${isUser ? 'justify-end' : 'justify-start'} mb-4">
