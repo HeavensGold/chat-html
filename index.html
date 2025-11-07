@@ -71,6 +71,22 @@
                 .message-children-mb code {
                   font-weight: inherit;
                 }
+                .dark .message-children-mb pre code {
+                  color: ${theme.colors.light?.[100]};
+                }
+                .dark .message-children-mb :not(pre) > code {
+                  background-color: ${theme.colors.dark?.[600]};
+                  color: ${theme.colors.light?.[200]};
+                  padding: 0.125rem 0.25rem;
+                  border-radius: 0.25rem;
+                }
+                .dark .message-children-mb th {
+                  color: ${theme.colors.light?.[100]};
+                  border-color: ${theme.colors.dark?.[400]};
+                }
+                .dark .message-children-mb td {
+                  border-color: ${theme.colors.dark?.[400]};
+                }
                 @keyframes fadeIn {
                   from { opacity: 0; transform: translateY(10px); }
                   to { opacity: 1; transform: translateY(0); }
@@ -86,6 +102,9 @@
                 }
                 .dark .message-children-mb strong {
                   color: ${theme.colors.blue?.[200]};
+                }
+                .dark .message-children-mb h3 {
+                  color: ${theme.colors.light?.[200]};
                 }
                 .dark .message-children-mb .capitalize {
                   color: ${theme.colors.green?.[300]};
