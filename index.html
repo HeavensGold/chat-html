@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>LLM Chat Interface</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/@unocss/runtime/preset-typography.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@unocss/runtime/preset-mini.global.js"></script>
+    <script type="text/javascript">
+      var hexRgb = (hex) => {
+        const num = parseInt(hex.replace('#', ''), 16)
+        if (isNaN(num)) return
+
+        const red = (num >> 16) & 255
+        const green = (num >> 8) & 255
+        const blue = num & 255
+        return `${red} ${green} ${blue}`
+      }
+
+      window.__unocss = {
+        presets: [
+          () => window.__unocss_runtime.presets.presetTypography({
+            cssExtend: {
+              'hr': {
+                margin: 0,
+                border: {
+                  color: '#00000020'
+                }
+              }
+            }
+          }),
+          () => window.__unocss_runtime.presets.presetMini(),
+        ],
+        preflights: [
+          {
+            getCSS: ({ theme }) => {
+              const gradientColor = hexRgb(theme.colors.blue?.[500]);
+              const lightShadow = hexRgb(theme.colors.dark?.[900]);
+              const darkShadow = hexRgb(theme.colors.light?.[50]);
+              return `
+                * {
+                  --un-default-border-color: ${theme.colors.light?.[900]};
+                  --un-shadow-color: rgb(${lightShadow} / 0.2);
+                  scrollbar-width: thin;
+                }
+                .dark * {
+                  --un-default-border-color: ${theme.colors.dark?.[50]};
+                  --un-shadow-color: rgb(${darkShadow} / 0.2);
+                }
+                .page-bg {
+                  background: radial-gradient(at 100% 0%, rgb(${gradientColor} / 20%) 0px, transparent 50%) no-repeat fixed center / cover;
+                }
+                .message-children-mb > *:first-child {
+                  margin-top: 0;
+                }
+                .message-children-mb > *:last-child {
+                  margin-bottom: 0;
+                }
+                .message-children-mb pre {
+                  border-radius: 0.5rem;
+                  background-color: ${theme.colors.light?.[600]};
+                  padding: 1rem;
+                  font-size: 0.875rem;
+                  line-height: calc(1.25 / 0.875);
+                }
+                .dark .message-children-mb pre {
+                  background-color: ${theme.colors.dark?.[700]};
+                  color: ${theme.colors.light?.[100]};
+                }
+                .message-children-mb code {
+                  font-weight: inherit;
+                }
+                @keyframes fadeIn {
+                  from { opacity: 0; transform: translateY(10px); }
+                  to { opacity: 1; transform: translateY(0); }
+                }
+                .message-children-mb > * {
+                  animation: fadeIn 0.5s ease-out forwards;
+                }
+                .capitalize {
+                    text-transform: capitalize;
+                }
+                .dark .message-children-mb {
+                  color: ${theme.colors.light?.[100]};
+                }
+                .dark .message-children-mb strong {
+                  color: ${theme.colors.blue?.[200]};
+                }
+                .dark .message-children-mb .capitalize {
+                  color: ${theme.colors.green?.[300]};
+                }
+                .dark .message-children-mb .capitalize:nth-child(2) {
+                  color: ${theme.colors.yellow?.[300]};
+                }
+              `
+            },
+          }
+        ],
+        shortcuts: {
+          'bg-content': 'bg-light-300 dark:bg-dark-300',
+          'button-active': 'active:translate-y-[2px]',
+          highlight: 'transition-colors hover:bg-light-600 hover:dark:bg-dark-600 hover:shadow-inner',
+          subtext: 'text-dark-900/50 dark:text-light-900/50',
+          'menu-button': 'w-full flex items-center justify-center gap-x-2 p-3 rounded-lg highlight button-active',
+          'cancel-button': 'p-2 text-sm rounded !bg-dark-500 text-white hover:bg-light-600 hover:dark:bg-dark-600 hover:shadow button-active',
+          'action-button': 'p-2 text-sm rounded !bg-blue-500 text-white hover:!bg-blue-600 hover:shadow button-active',
+          'message-button': 'p-2 rounded-full highlight button-active',
+          input: 'border rounded-lg bg-white dark:bg-dark-900 focus:outline-none focus:ring-1 focus:ring-blue-500'
+        }
+      }
+
+      window.darkMode = localStorage.theme === "dark" ||
+          (!("theme" in localStorage) && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      document.documentElement.classList.toggle("dark", window.darkMode);
+      if (window.darkMode) document.documentElement.style.backgroundColor = '#000';
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@unocss/runtime/core.global.js"></script>
+
+		<script type="importmap">
+			{
+        "imports": {
+          "preact": "https://esm.sh/preact@10.26.7",
+          "preact/":	"https://esm.sh/preact@10.26.7/",
+          "@preact/signals": "https://esm.sh/@preact/signals@2.0.5?external=preact",
+          "htm/preact": "https://esm.sh/htm@3.1.1/preact?external=preact",
+          "idb-keyval": "https://esm.sh/idb-keyval@6.2.2",
+          "xss": "https://esm.sh/xss@1.0.15",
+          "clsx": "https://esm.sh/clsx@2.1.1",
+          "dot-prop": "https://esm.sh/dot-prop@9.0.0",
+          "timeago": "https://esm.sh/timeago.js@4.0.2",
+          "streaming-md": "https://esm.sh/streaming-markdown@0.2.15",
+          "xid": "https://esm.sh/xid-ts@1.1.4"
+        }
+      }
+		</script>
+
+		<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@unocss/reset/tailwind.min.css" />
+		<style>
+			[un-cloak] {
+        display: none;
+      }
+    </style>
+	</head>
+
+	<body class="h-screen w-screen">
+		<div id="app" class=" flex overflow-hidden text-dark-500 dark:text-light-500 bg-light-500 dark:bg-dark-500"></div>
+
+		<script type="module">
+			import { h, render } from 'preact';
+      import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
+      import { effect, signal, useSignal } from "@preact/signals";
+      import { html } from 'htm/preact';
+      import { clsx } from 'clsx';
+      import { getProperty, setProperty } from 'dot-prop';
+      import { get, set, del, clear, createStore, update, values } from 'idb-keyval';
+      import { format } from 'timeago';
+      import { Xid } from 'xid';
+      import * as smd from "streaming-md"
+
+      // SVG Icons
+      const icons = {
+        copy: html`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" class="w-4 h-4"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M7 9.667A2.667 2.667 0 0 1 9.667 7h8.666A2.667 2.667 0 0 1 21 9.667v8.666A2.667 2.667 0 0 1 18.333 21H9.667A2.667 2.667 0 0 1 7 18.333z"/><path d="M4.012 16.737A2 2 0 0 1 3 15V5c0-1.1.9-2 2-2h10c.75 0 1.158.385 1.5 1"/></g></svg>`,
+        newChat: html`<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>`,
+        settings: html`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" class="w-5 h-5"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M20 7h-9m3 10H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></g></svg>`,
+        trash: html`<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>`,
+        edit: html`<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>`,
+        regenerate: html`<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>`,
+        send: html`<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" /></svg>`,
+        wait: html`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" class="w-12 h-12"><path fill="currentColor" d="M12,1A11,11,0,1,0,23,12,11,11,0,0,0,12,1Zm0,19a8,8,0,1,1,8-8A8,8,0,0,1,12,20Z" opacity="0.25"/><circle cx="12" cy="2.5" r="1.5" fill="currentColor"><animateTransform attributeName="transform" dur="1.125s" repeatCount="indefinite" type="rotate" values="0 12 12;360 12 12"/></circle></svg>`,
+        dark: html`<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><path fill="currentColor" d="M10 3.5a6.5 6.5 0 1 1 0 13zM10 2a8 8 0 1 0 0 16a8 8 0 0 0 0-16"/></svg>`,
+        sidebar: html`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M6 21a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3zM18 5h-8v14h8a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1"/></svg>`,
+        updown: html`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m18 10l-6-6l-6 6zm0 4l-6 6l-6-6z"/></svg>`
+      };
+
+      // Global database instance backed by IndexedDB
+      const db = createStore('chatsdb', 'chats');
+
+      // Utility functions
+      const debounce = (fn, wait) => {
+        let timeout;
+        return (...args) => {
+          clearTimeout(timeout);
+          timeout = setTimeout(() => fn(...args), wait);
+        };
+      }
+
+      // Adjust input height until 50% of viewport hieght
+      const adjustInputHeight = (el) => {
+        if (!el) return;
+        el.style.height = 'auto';
+        el.style.height = `${el.scrollHeight + 2}px`;
+      }
+
+      // Default settings
+      const defaultSettings = {
+        server: {
+          apiUrl: 'http://10.8.34.4:30000/v1/chat/completions',
+          apiKey: undefined,
+          model: undefined,
+          streaming: true,
+          customConfig: undefined,
+        },
+        chat: {
+          systemPrompt: 'You are a helpful assistant.',
+          temperature: 0.7,
+          topP: 1,
+          frequencyPenalty: 0,
+          presencePenalty: 0,
+          enableReasoning: false,
+        },
+      };
+
+      // Settings signal - load and persist to/from localStorage at startup and on change
+      const settings = signal(
+        JSON.parse(localStorage.getItem('settings') || null) || defaultSettings
+      );
+      effect(() => localStorage.setItem('settings', JSON.stringify(settings.value)));
+
+      // Currently showning chat - persists to IndexedDB
+      const	currentChat = signal(null);
+      const updateCurrentChat = debounce(() => {
+        if (!currentChat.value) return;
+
+        const chat = {
+          ...currentChat.value,
+          messages: currentChat.value.messages?.map(message => {
+            const { response, ...rest } = message;
+            return rest;
+          })
+        }
+
+        set(currentChat.value.id, chat, db)
+
+        chats.value = chats.value.map(
+          c => (
+            c.id === currentChat.value.id
+              ? { ...c, updated: currentChat.value.updated }
+              : c
+          )
+        );
+        requestAnimationFrame(sortChats);
+      }, 0);
+      effect(() => {
+        if (currentChat.value) {
+          updateCurrentChat();
+          localStorage.setItem('current-chat', currentChat.value.id);
+        }
+      });
+
+      // Chats signal - only id -> title & updated mapping, does not persist
+      const chats = signal([]);
+      const sortChats = () => {
+        chats.value = chats.value.sort(
+          (a, b) => Date.parse(b.updated) - Date.parse(a.updated)
+        )
+      }
+
+      const useAutoScroll = (elRef, containerRef) => {
+        const forceScroll = useSignal(0);
+        const autoScrollEnabled = useSignal(true);
+
+        useEffect(() => {
+          const el = elRef.current;
+          if (!el) return;
+
+          const container = containerRef.current;
+          if (!container) return;
+
+          // Intersection observer to detect when we're near bottom
+          const observer = new IntersectionObserver(
+            (entries) => {
+              autoScrollEnabled.value = entries.some(entry =>
+                entry.isIntersecting && entry.intersectionRatio > 0.1
+              );
+            },
+            {
+              root: container,
+              threshold: [0, 0.1, 1],
+              rootMargin: '64px'
+            }
+          );
+
+          observer.observe(el);
+
+          // Auto-scroll when requested and enabled
+          const handleForceScroll = () => {
+            if (autoScrollEnabled.value && el) {
+              elRef.current.scrollIntoView({
+                behavior: 'instant'
+              });
+            }
+          };
+
+          const unsubscribe = forceScroll.subscribe(handleForceScroll);
+
+          return () => {
+            observer.disconnect();
+            unsubscribe();
+          };
+        }, [elRef.current]);
+
+        return forceScroll;
+      }
+
+      const streamToHTML = (chunk, parent) => {
+        const getOrCreateP = (createNew) => {
+          let p = parent.lastElementChild;
+          if (p?.tagName !== 'P' || (createNew && p.textContent.trim() !== "")) {
+            p = document.createElement('p');
+            parent.appendChild(p);
+          }
+          return p
+        }
+
+        const appendToP = (text = '') => {
+          const p = getOrCreateP();
+          if (text) p.textContent += text;
+        };
+
+        // Normalize line endings
+        chunk = chunk.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        if (!chunk.trim()) return false;
+
+        let buffer = '';
+        let i = 0;
+
+        while (i < chunk.length) {
+          const char = chunk[i];
+
+          if (char === '\n') {
+            if (buffer) {
+              appendToP(buffer);
+              buffer = '';
+            }
+
+            getOrCreateP(true);
+            i++;
+            continue;
+          }
+
+          buffer += char;
+          i++;
+        }
+
+        if (buffer) appendToP(buffer)
+        return true;
+      };
+
+      const Loading = () => (html`
+        <div class="flex flex-col items-center gap-4">
+          ${icons.wait}
+          <div class="text-semibold">Please wait</div>
+        </div>
+      `)
+
+      // Server settings modal
+      const SettingsModal = ({ mode, onClose }) => {
+        const isGlobal = useMemo(() => mode === 'global', [mode]);
+        const [dirty, setDirty] = useState(isGlobal ? settings.value : currentChat.value.settings);
+        const [parsed, setParsed] = useState(dirty);
+        const [activeTab, setActiveTab] = useState(isGlobal ? 'server' : 'chat');
+
+        const getName = useCallback((name) => isGlobal ? `chat.${name}` : name, [isGlobal]);
+
+        const getValue = useCallback((name) => getProperty(dirty, getName(name)), [dirty, getName]);
+
+        const handleChange = useCallback((e) => {
+          const { name, value, type, checked } = e.target;
+          const inputValue = type === 'checkbox' ? checked : value;
+
+          const newDirty = { ...dirty };
+          setProperty(newDirty, name, inputValue);
+          setDirty(newDirty);
+
+          const newParsed = { ...parsed };
+          if (name === 'customConfig') {
+            try {
+              setProperty(newParsed, name, JSON.parse(inputValue));
+            } catch {}
+          } else if (type === 'number') {
+            setProperty(newParsed, name, inputValue === '' ? null : Number(inputValue));
+          } else {
+            setProperty(newParsed, name, inputValue);
+          }
+          setParsed(newParsed);
+
+        }, [isGlobal, dirty, parsed]);
+
+        const handleSubmit = useCallback((e) => {
+          e.preventDefault();
+          isGlobal
+            ? settings.value = parsed
+            : currentChat.value = {...currentChat.value, settings: parsed};
+          onClose();
+        }, [isGlobal, parsed, onClose]);
+
+        return html`
+          <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div class="max-h-[80%] bg-content rounded-lg shadow-xl w-full max-w-2xl overflow-y-auto">
+              <div class="flex flex-wrap items-center justify-between p-4 border-b">
+                <h3 class="text-lg font-medium">${isGlobal ? 'Settings' : 'Chat Settings'}</h3>
+
+                ${isGlobal && html`
+                  <div class="flex gap-2 text-sm">
+                    <button
+                      class=${clsx(
+                        "p-2 rounded-md hover:bg-gray-100",
+                        activeTab === 'server' ? 'font-medium action-button' : 'menu-button'
+                      )}
+                      onClick=${() => setActiveTab('server')}
+                    >
+                      Server
+                    </button>
+                    <button
+                      class=${clsx(
+                        "p-2 rounded-md hover:bg-gray-100",
+                        activeTab === 'chat' ? 'font-medium action-button' : 'menu-button'
+                      )}
+                      onClick=${() => setActiveTab('chat')}
+                    >
+                      Chat
+                    </button>
+                  </div>
+
+                  <!-- <div class="md:hidden flex justify-center"> -->
+                  <!--   <select -->
+                  <!--     value=${activeTab} -->
+                  <!--     onChange=${(e) => setActiveTab(e.target.value)} -->
+                  <!--     class="p-2 border rounded bg-gray-100 focus-visible:outline-blue" -->
+                  <!--   > -->
+                  <!--     <option value="server">Server</option> -->
+                  <!--     <option value="chat">Chat</option> -->
+                  <!--   </select> -->
+                  <!-- </div> -->
+                `}
+              </div>
+
+              <!-- Form Content -->
+              <form onSubmit=${handleSubmit} class="flex-1 flex flex-col p-4 gap-y-4">
+                <!-- Server Tab -->
+                ${isGlobal && activeTab === 'server' && html`
+                  <div class="flex flex-col gap-y-4">
+                    <div>
+                      <label class="block text-sm font-medium mb-1">API URL</label>
+                      <input
+                        type="text"
+                        name="server.apiUrl"
+                        value=${dirty.server.apiUrl}
+                        onInput=${handleChange}
+                        class="w-full p-2 input"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium mb-1">API Key</label>
+                      <input
+                        type="password"
+                        name="server.apiKey"
+                        value=${dirty.server.apiKey}
+                        onInput=${handleChange}
+                        placeholder="sk-... (leave blank to keep current)"
+                        class="w-full p-2 input"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium mb-1">Model</label>
+                      <input
+                        type="text"
+                        name="server.model"
+                        value=${dirty.server.model}
+                        onInput=${handleChange}
+                        class="w-full p-2 input"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium mb-1">Custom Config (JSON)</label>
+                      <textarea
+                        name="server.customConfig"
+                        value=${JSON.stringify(dirty.server.customConfig)}
+                        onInput=${handleChange}
+                        class="w-full p-2 border rounded input"
+                        rows="5"
+                      />
+                    </div>
+                    <div class="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="streaming"
+                        name="server.streaming"
+                        checked=${dirty.server.streaming}
+                        onChange=${e => setDirty(prev => ({ ...prev, streaming: e.target.checked }))}
+                        class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <label for="streaming" class="block text-sm font-medium ml-2">
+                        Enable Streaming
+                      </label>
+                    </div>
+                  </div>
+                `}
+
+                <!-- Chat Tab -->
+                ${activeTab === 'chat' && html`
+                  <div class="flex flex-col gap-y-4">
+                    <div>
+                      <label class="block text-sm font-medium mb-1">System Prompt</label>
+                      <textarea
+                        name=${getName("systemPrompt")}
+                        value=${getValue("systemPrompt")}
+                        onInput=${handleChange}
+                        class="w-full p-2 input"
+                        rows="3"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium mb-1">Temperature</label>
+                      <input
+                        type="number"
+                        name=${getName("temperature")}
+                        min="0"
+                        max="2"
+                        step="0.01"
+                        value=${getValue("temperature")}
+                        onInput=${handleChange}
+                        class="w-full p-2 input"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium mb-1">Max Tokens</label>
+                      <input
+                        type="number"
+                        name=${getName("maxTokens")}
+                        min="1"
+                        value=${getValue("maxTokens")}
+                        onInput=${handleChange}
+                        class="w-full p-2 input"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium mb-1">Top P</label>
+                      <input
+                        type="number"
+                        name=${getName("topP")}
+                        min="0"
+                        max="1"
+                        step="0.01"
+                        value=${getValue("topP")}
+                        onInput=${handleChange}
+                        class="w-full p-2 input"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium mb-1">Frequency Penalty</label>
+                      <input
+                        type="number"
+                        name=${getName("frequencyPenalty")}
+                        min="0"
+                        max="2"
+                        step="0.01"
+                        value=${getValue("frequencyPenalty")}
+                        onInput=${handleChange}
+                        class="w-full p-2 input"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium mb-1">Presence Penalty</label>
+                      <input
+                        type="number"
+                        name=${getName("presencePenalty")}
+                        min="0"
+                        max="2"
+                        step="0.01"
+                        value=${getValue("presencePenalty")}
+                        onInput=${handleChange}
+                        class="w-full p-2 input"
+                      />
+                    </div>
+                    <div class="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="enableReasoning"
+                        name=${getName("enableReasoning")}
+                        checked=${getValue("enableReasoning")}
+                        onChange=${handleChange}
+                        class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <label for="enableReasoning" class="block text-sm font-medium ml-2">
+                        Enable Reasoning Mode
+                      </label>
+                    </div>
+                  </div>
+                `}
+
+                <div class="flex justify-end gap-x-2 pt-4">
+                  <button type="button" onClick=${onClose} class="cancel-button">Cancel</button>
+                  <button type="submit" class="action-button">Save</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        `;
+      };
+
+      const Collapse = ({ children, header, updateSignal }) => {
+        const [isOpen, setIsOpen] = useState(true);
+        const [height, setHeight] = useState(0);
+
+        const containerRef = useRef(null);
+
+        const toggle = () => setIsOpen(current => !current);
+
+        const updateHeight = () => {
+          if (isOpen) {
+            setHeight(containerRef.current?.scrollHeight + 16 ?? 0);
+          } else {
+            setHeight(0);
+          }
+        };
+
+        useEffect(() => updateHeight(), [isOpen, updateSignal.value]);
+
+        useEffect(() => setIsOpen(!!children), [children]);
+
+        return html`
+          <div class="w-full overflow-hidden">
+            ${header && html`
+              <div class="w-full flex items-center">
+                <div class="flex-1">${header}</div>
+                <button type="button" onClick=${toggle} class="menu-button w-fit p-2">
+                  ${icons.updown}
+                </button>
+              </div>
+            `}
+
+            <div
+              class="transition-[height] ease-in-out duration-300" style=${{ maxHeight: height }}>
+              <div ref=${containerRef}>
+                ${children}
+              </div>
+            </div>
+          </div>
+        `;
+      };
+
+      // Chat message component
+      const ChatMessage = ({message, isGenerating, forceScroll, onEdit, onRegenerate}) => {
+        const isUser = message.role === 'user';
+        const isLast = useMemo(() => {
+          const messages = currentChat.value.messages;
+          return messages[messages.length - 1].id === message.id;
+        }, [currentChat.value]);
+
+        const reasoningRef = useRef();
+        const contentRef = useRef();
+        const editInputRef = useRef();
+
+        const [isEditing, setIsEditing] = useState(false);
+        const [editedContent, setEditedContent] = useState(message.content ?? 'No content');
+
+        const isReasoning = useSignal(false);
+        const hasReasoning = useSignal(false);
+        const rendered = useSignal(false);
+
+        const handleEditSubmit = (e) => {
+          e.preventDefault();
+          onEdit(editedContent);
+          setIsEditing(false);
+        };
+
+        const render = useCallback(async () => {
+          if (rendered.value || message.response?.body.locked || !contentRef.current) return;
+          contentRef.current.innerHTML = '';
+
+          const renderer = smd.default_renderer(contentRef.current);
+          const parser   = smd.parser(renderer);
+
+          if (message.response) {
+            message.content = '';
+            const reader = message.response.body.getReader();
+            const decoder = new TextDecoder();
+
+            while (true) {
+              const {done, value} = await	reader.read();
+              if (done) break;
+              const chunk = decoder.decode(value, {stream: true});
+              const lines = chunk.split('\n').filter(line => line.trim() !== '');
+
+              for (const line of lines) {
+                if (!line.startsWith('data:') || line.trim().endsWith('[DONE]')) continue;
+
+                const data = JSON.parse(line.substring(5));
+                let content =	data.choices[0]?.delta?.content;
+                if (!content) continue;
+
+                if (content.startsWith("<think>")) {
+                  isReasoning.value = true;
+                }
+
+                if (isReasoning.value) {
+                  if (content.includes("</think>")) {
+                    const [reason, answer] = content.split("</think>");
+                    if (reason) {
+                      if (!message.reasoning) message.reasoning = "";
+                      message.reasoning += reason;
+                      streamToHTML(reason, reasoningRef.current)
+                    }
+                    content = answer;
+                    isReasoning.value = false;
+                  } else {
+                    const reason = content.replace("<think>", "");
+                    if (reason?.trim()) hasReasoning.value = true;
+                    if (!message.reasoning) message.reasoning = "";
+                    message.reasoning += reason;
+                    streamToHTML(reason, reasoningRef.current)
+                    forceScroll.value = forceScroll.value + 1;
+                    continue;
+                  }
+                }
+
+                smd.parser_write(parser, content);
+                message.content += content;
+                forceScroll.value = forceScroll.value + 1;
+              }
+            }
+
+            isGenerating.value = false;
+            currentChat.value = {
+              ...currentChat.value,
+              messages: currentChat.value.messages.map(
+                m => message.id === m.id ? message : m
+              )
+            };
+            message.response = undefined;
+          } else {
+            if (message.reasoning?.trim()) {
+              hasReasoning.value = true;
+              streamToHTML(message.reasoning.trimStart(), reasoningRef.current)
+            }
+            smd.parser_write(parser, message.content || 'No content');
+            forceScroll.value++;
+          }
+
+          smd.parser_end(parser);
+          rendered.value = true;
+        }, [contentRef.current]);
+
+        useEffect(() => render(), [contentRef.current])
+
+			  useEffect(() => {
+          if (isEditing && editInputRef.current) {
+            adjustInputHeight(editInputRef.current);
+			      editInputRef.current.focus();
+            return;
+          }
+          render();
+        }, [isEditing]);
+
+        const form = html`
+          <form onSubmit=${handleEditSubmit}>
+            <textarea
+              ref=${editInputRef}
+              class="w-full p-2 border rounded input"
+              value=${editedContent}
+              onInput=${e => {
+                setEditedContent(e.target.value);
+                adjustInputHeight(editInputRef.current)
+              }}
+              rows=${Math.min(5, editedContent.split('\n').length)}
+            />
+            <div class="flex justify-end mt-2 gap-x-2">
+              <button
+                type="button"
+                class="cancel-button"
+                onClick=${() => {
+                  setEditedContent(message.content);
+                  setIsEditing(false);
+                }}
+              >
+                Cancel
+              </button>
+              <button type="submit" class="action-button">Regenerate</button>
+            </div>
+          </form>
+        `;
+
+        const content = html`
+          <div class=${clsx("", isUser ? 'rounded-l-none' : 'rounded-r-none')}>
+            <div
+              class=${clsx(
+                "max-w-[100%] px-4 mb-4 border-l-4",
+                "whitespace-normal message-children-mb prose fade-in",
+                hasReasoning.value ? 'block' : 'hidden'
+              )}
+            >
+              <button
+                class="font-medium"
+                onClick=${() => {
+                  reasoningRef.current.classList.toggle("hidden");
+                  forceScroll.value++;
+                }}
+              >
+                  Reasoning
+              </button>
+              <div ref=${reasoningRef} class="text-sm hidden" />
+            </div>
+            <div
+              ref=${contentRef}
+              class="whitespace-normal message-children-mb prose max-w-[100%] fade-in"
+            />
+          </div>
+        `;
+
+        const actionButtons = html`
+          <div
+            class=${clsx(
+              "absolute right-1 -bottom-4 flex items-center",
+              "opacity-0 group-hover:opacity-100 transition-opacity"
+            )}
+          >
+            <button
+              onClick=${() =>	navigator.clipboard.writeText(message.content)}
+              class="message-button"
+              title="Edit"
+            >
+              ${icons.copy}
+            </button>
+            ${isUser && !isGenerating.value
+              ? html`
+                <button onClick=${() =>	setIsEditing(true)} class="message-button" title="Edit">
+                  ${icons.edit}
+                </button>
+              `
+              :	html`
+                <button onClick=${onRegenerate} class="message-button" title="Regenerate">
+                  ${icons.regenerate}
+                </button>
+              `
+            }
+          </div>
+        `;
+
+        const header = html`<div class="capitalize font-semibold">${isUser ? "you" : message.role}</div>`;
+
+        return html`
+          <div class="flex ${isUser ? 'justify-end' : 'justify-start'} mb-4">
+            <div class="relative w-[90%] flex flex-col gap-2 px-4 py-2 bg-content shadow rounded-lg group">
+              <${Collapse} header=${header} updateSignal=${forceScroll}>
+                ${isEditing ? form : content}
+              </${Collapse}>
+              ${actionButtons}
+            </div>
+          </div>
+        `
+      }
+
+      // Main App component
+      function App() {
+        const input = useSignal('');
+        const	isGenerating = useSignal(false);
+
+        const [darkMode, setDarkMode] = useState(window.darkMode)
+        const [waiting, setWaiting] = useState(true);
+
+        const [showSettings, setShowSettings] = useState(null);
+        const [showSidebar, setShowSidebar] = useState(
+          window.matchMedia('(min-width: 1024px)').matches ? true : false);
+
+        const sidebarRef = useRef();
+        const messageContainerRef = useRef();
+        const messagesEndRef = useRef();
+        const inputRef = useRef();
+
+        const forceScroll = useAutoScroll(messagesEndRef, messageContainerRef);
+
+        // Load data state and start worker on initial render
+        useEffect(() => {
+          const	savedCurrentChatId = localStorage.getItem('current-chat');
+
+          values(db).then(stored => {
+            const savedChats = stored.map(chat => ({id: chat.id, title: chat.title, updated: chat.updated}));
+            savedChats.length > 0 ? chats.value = savedChats : createNewChat();
+
+            if (savedCurrentChatId) {
+              const chat = stored.find(c => c.id === savedCurrentChatId);
+              if (chat) {
+                currentChat.value = chat;
+              } else if (stored[0]) {
+                currentChat.value = stored[0];
+              }
+            }
+
+            sortChats();
+            setWaiting(false);
+            requestAnimationFrame(() => adjustInputHeight(inputRef.current));
+          })
+        }, []);
+
+        useEffect(() => {
+          localStorage.theme = darkMode ? "dark" : "light";
+          document.documentElement.classList.toggle("dark", darkMode)
+        }, [darkMode]);
+
+        // Hide sidebar on mobile, scroll to bottom and auto-focus input on currentChat change
+        useEffect(() => {
+          const isLarge = window.matchMedia('(min-width: 1024px)').matches;
+          if (!isLarge && showSidebar) setShowSidebar(false);
+          messagesEndRef.current?.scrollIntoView({behavior: 'instant'});
+          inputRef.current?.focus();
+        }, [currentChat.value]);
+
+        const handleKeyDown = useCallback((e) => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleSendMessage();
+          }
+        }, []);
+
+        const createNewChat = useCallback(() => {
+          const newChat = {
+            id: new Xid().toString(),
+            title: 'New Chat',
+            settings: settings.value.chat,
+            messages: [],
+            updated: new Date().toISOString()
+          };
+          chats.value = [newChat, ...chats.value];
+          currentChat.value = newChat;
+          isGenerating.value = false;
+        }, []);
+
+        const selectChat = useCallback(
+          (chatId) => get(chatId, db).then(chat => (currentChat.value = chat)), []
+        );
+
+        const deleteCurrentChat = useCallback(() => {
+          if (confirm('Are you sure you want to this chat? This cannot be undone.')) {
+            const id = currentChat.value.id;
+            del(id, db);
+
+            const prev = chats.value;
+            const pos = prev.findIndex(chat => chat.id === id);
+            const nextPos = pos < prev.length - 1 ? pos + 1 : pos - 1;
+            if (nextPos < 0) createNewChat();
+            else get(prev[nextPos].id, db).then(chat => (currentChat.value = chat));
+            prev.splice(pos, 1);
+            chats.value = [...prev.filter(chat => chat.id !== id)];
+          }
+        }, []);
+
+        const clearChatHistory = useCallback(() => {
+          if (confirm('Are you sure you want to clear all chat history? This cannot be undone.')) {
+            clear(db);
+            chats.value = [];
+            createNewChat();
+          }
+        }, []);
+
+        const updateCurrentChatTitle = useCallback(async (newTitle) => {
+          update(currentChat.id, (chat) => ({...chat, title: newTitle}), db);
+        }, []);
+
+        // Update currentChat messages
+        const updateMessages = useCallback((newMessage) => {
+          const messages = currentChat.value.messages.filter(m => m.id !== newMessage.id);
+          currentChat.value = {
+            ...currentChat.value,
+            updated: new Date().toISOString(),
+            messages: [...messages, newMessage]
+          }
+        }, []);
+
+        const handleApiError = (error) => {
+          console.error('Error:', error);
+          const errorMessage = {
+            role: 'assistant',
+            content: `Error: ${error.message}`,
+            id: new Xid().toString()
+          };
+          updateMessages(errorMessage);
+        }
+
+        const generateContent = useCallback(async () => {
+          const serverSettings = settings.value.server;
+          const chatSettings = currentChat.value.settings;
+          const systemPrompt = chatSettings.systemPrompt
+            ? [{role: 'system', content: chatSettings.systemPrompt}]
+            : [];
+          const messages = [
+            ...systemPrompt,
+            ...currentChat.value.messages.map(m => ({role: m.role, content: m.content}))
+          ];
+          const requestBody = {
+            model: serverSettings.model,
+            stream: serverSettings.streaming,
+            temperature: chatSettings.temperature,
+            max_tokens: chatSettings.maxTokens,
+            top_p: chatSettings.topP,
+            frequency_penalty: chatSettings.frequencyPenalty,
+            presence_penalty: chatSettings.presencePenalty,
+            chat_template_kwargs: {
+              enable_thinking: chatSettings.enableReasoning
+            },
+            messages
+          };
+          if (serverSettings.customConfig) {
+            requestBody = {...requestBody, ...serverSettings.customConfig};
+          };
+
+          const assistantMessage = {
+            role: 'assistant',
+            id: new Xid().toString()
+          };
+
+          try {
+            const response = await fetch(serverSettings.apiUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${serverSettings.apiKey}`
+              },
+              body: JSON.stringify(requestBody)
+            });
+
+            if (!settings.value.server.streaming) {
+              const data = await response.json();
+              assistantMessage.content = data.choices[0]?.message?.content	|| 'No response';
+            } else {
+              assistantMessage.response = response;
+            }
+          } catch (error) {
+            assistantMessage.content = `Error: ${error.message}`;
+          } finally {
+            updateMessages(assistantMessage);
+          }
+        }, []);
+
+        const generateTitle = useCallback(async (firstMessage) => {
+          if (!currentChat) return;
+
+          const serverSettings = settings.value.server;
+          const prompt = `/no-think Generate a very short title (3-5 words max) for a chat that starts with:	"${firstMessage.substring(0, 100)}"`;
+          const message = {
+            role:	'user',
+            content: prompt
+          };
+
+          try {
+            const response = await fetch(serverSettings.apiUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${serverSettings.apiKey}`
+              },
+              body: JSON.stringify({
+                model: serverSettings.model,
+                messages: [message],
+                temperature: 0.5,
+                max_tokens: 30,
+                stream: false,
+                chat_template_kwargs: {
+                  enable_thinking: false
+                }
+              })
+            });
+
+            if (!response.ok) throw new Error('Failed	to generate title');
+
+            const data = await response.json();
+            let title = data?.choices?.[0]?.message?.content || '';
+            title = title.replace(/["']/g, '').replace(/<think>.*?<\/think>/s, '').trim();
+            if (title) {
+              chats.value = chats.value.map(
+                chat => (chat.id === currentChat.value.id ? {...chat, title} : chat));
+              currentChat.value = {...currentChat.value, title};
+            }
+          } catch (error) {
+            console.error('Error generating title:', error);
+          }
+        }, []);
+
+
+        const handleSendMessage = useCallback(async (message) => {
+          const	content = message?.content ?? input.value.trim();
+          if (!content ||	isGenerating.value || !currentChat.value) return;
+
+          if (!message) message = {
+            role: 'user',
+            id: message?.id ?? new Xid().toString(),
+            content
+          };
+
+          // If this is the first message in the chat, generate a title
+          if (currentChat.value.messages.length === 0) {
+            await generateTitle(content);
+          }
+
+          updateMessages(message);
+          isGenerating.value = true;
+          input.value = '';
+          requestAnimationFrame(() => adjustInputHeight(inputRef.current));
+
+          generateContent();
+        }, []);
+
+        const handleRegenerate = useCallback(async (messageId) => {
+          if (isGenerating.value) return;
+
+          // Truncate all messages after the message to be regenerated
+          const messageIndex = currentChat.value.messages.findIndex(m => m.id ===	messageId);
+          if (messageIndex === -1) return;
+
+          const messages = currentChat.value.messages.slice(0, messageIndex);
+          currentChat.value = {...currentChat.value, messages};
+          isGenerating.value = true;
+
+          generateContent();
+        }, []);
+
+        const	handleEditMessage = async (messageId, newContent) => {
+          const index = currentChat.value.messages.findIndex(msg => msg.id === messageId);
+          if (index === -1) return;
+          let message = currentChat.value.messages[index]
+
+          // Truncate all messages from the edited message
+          const messages = currentChat.value.messages.slice(0, index);
+          currentChat.value = {...currentChat.value, messages};
+
+          message =	{...message, content: newContent }
+          handleSendMessage(message)
+        }
+
+        const newChatButton = (html`
+          <button
+            onClick=${createNewChat}
+            class="action-button"
+          >
+            ${icons.newChat}
+            <span class="lg:hidden">New	Chat</span>
+          </button>
+        `)
+
+        const hideSidebarButton = (html`
+          <button
+            onClick=${() => setShowSidebar(!showSidebar)}
+            class="p-2 highlight button-active rounded-lg lg:!menu-button"
+          >
+            ${icons.sidebar}
+          </button>
+        `)
+
+        const actionButtons = (html`
+          <button
+            onClick=${clearChatHistory}
+            class="menu-button !text-red-500"
+          >
+            ${icons.trash}
+          </button>
+          <button
+            onClick=${() => setShowSettings('global')}
+            class="menu-button"
+          >
+            ${icons.settings}
+          </button>
+          <button
+            onClick=${() => setDarkMode(prev => !prev)}
+            class="menu-button"
+          >
+            ${icons.dark}
+          </button>
+        `)
+
+        if (waiting) return html`
+          <div class="h-screen w-screen flex items-center justify-center" un-cloak>
+            <${Loading} />
+          </div>
+        `
+
+        return html`
+          <div class="relative h-screen w-screen overflow-hidden flex" un-cloak>
+            <!--Action Sidebar md+-->
+            <div class=${clsx(
+              "w-0 lg:w-16 h-full hidden lg:flex flex-col items-center justify-between z-10",
+              {'shadow-xl transition-box-shadow duration-300': showSidebar}
+            )}>
+              <div class="p-2 flex flex-col items-center gap-4">
+                ${hideSidebarButton}
+                ${newChatButton}
+              </div>
+              <div class="flex flex-col gap-2">${actionButtons}</div>
+            </div>
+
+            <div class="flex-1 relative h-full overflow-hidden">
+              <!--Sidebar -->
+              <nav
+                ref=${sidebarRef}
+                class=${clsx(
+                  "absolute w-64 lg:w-1/5 h-full transition-transform duration-300",
+                  showSidebar ? "translate-x-0" : "-translate-x-64 lg:-translate-x-full"
+                )}
+              >
+                <div class="h-full flex flex-col overflow-x-hidden bg-light-600 dark:bg-dark-500">
+                  <div class="lg:hidden w-full p-2">
+                    ${newChatButton}
+                  </div>
+                  <div class="flex-1 w-full overflow-y-auto chat-history p-2">
+                    ${chats.value.map(chat => html`
+                      <button
+                        key=${chat.id}
+                        onClick=${() =>	selectChat(chat.id)}
+                        disabled=${currentChat.value?.id === chat.id}
+                        class=${clsx(
+                          "w-full flex flex-col items-start p-2",
+                          currentChat.value?.id === chat.id
+                            ? 'bg-light-700 dark:bg-dark-200 shadow rounded-lg'
+                            : 'hover:bg-light-700 hover:dark:bg-dark-200 hover:shadow'
+                        )}
+                      >
+                        <span class=${clsx(
+                          "w-full text-left truncate",
+                          {'font-medium': currentChat.value?.id === chat.id}
+                        )}>
+                          ${chat.title}
+                        </span>
+                        <span class="text-sm subtext">${format(chat.updated)}</span>
+                      </button>
+                    `)}
+                  </div>
+                  <div class="w-full flex flex-col gap-2">
+                    <div class="w-full p-2 text-sm font-medium text-center subtext">Chats are stored in IndexedDB</div>
+                    <div class="lg:hidden w-full flex">
+                      ${actionButtons}
+                    </div>
+                  </div>
+                </div>
+              </nav>
+
+              <!-- Main content -->
+              <div
+                class=${clsx(
+                  "h-full flex flex-col overflow-hidden transition-all duration-300 page-bg",
+                  showSidebar ? "translate-x-64 lg:translate-x-0 lg:ml-[20%]" : "translate-x-0 lg:ml-0"
+                )}
+              >
+                <!-- Chat header -->
+                <div class="flex items-center justify-between gap-4 mx-4 mt-2 p-4 rounded-lg bg-content shadow-md z-10">
+                  <!-- Mobile sidebar toggle (hidden on desktop) -->
+                  <div class="lg:hidden">${hideSidebarButton}</div>
+
+                  <div class="flex-1 flex items-center gap-4 overflow-hidden">
+                    <h2 class="flex-1 text-xl font-semibold truncate">
+                      ${currentChat.value?.title}
+                    </h2>
+
+                    <div class="flex items-center gap-4">
+                      <button
+                        type="button"
+                        onClick=${() => setShowSettings('current-chat')}
+                        class="menu-button !p-2"
+                      >
+                        ${icons.settings}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick=${deleteCurrentChat}
+                        class="menu-button !p-2 !text-red-500"
+                      >
+                        ${icons.trash}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Messages -->
+                <div ref=${messageContainerRef} class="flex-1 overflow-y-auto p-4">
+                  <div class="max-w-[80rem] h-full mx-auto">
+                    ${currentChat.value?.messages.length === 0
+                      ?	html`
+                        <div class="flex items-center justify-center h-full subtext">
+                          <div class="text-center">
+                            <p class="text-lg">Start a new conversation</p>
+                            <p class="mt-2">Type a message below to begin chatting</p>
+                          </div>
+                        </div>
+                      `
+                      : currentChat.value?.messages.map(message => html`
+                        <${ChatMessage}
+                          key=${message.id}
+                          message=${message}
+                          isGenerating=${isGenerating}
+                          forceScroll=${forceScroll}
+                          onEdit=${(newContent) => handleEditMessage(message.id, newContent)}
+                          onRegenerate=${() => handleRegenerate(message.id)}
+                        />
+                      `
+                    )}
+                    <div ref=${messagesEndRef} />
+                  </div>
+                </div>
+
+                <!-- Input area -->
+                <div class="p-4 pb-1">
+                  <div class="flex items-end gap-x-2">
+                    <textarea
+                      ref=${inputRef}
+                      value=${input.value}
+                      onInput=${e => {
+                        input.value = e.target.value;
+                        adjustInputHeight(inputRef.current);
+                      }}
+                      onKeyDown=${handleKeyDown}
+                      placeholder="Type a message..."
+                      rows="2"
+                      class=${clsx(
+                        "max-h-[50vh] flex-1 p-3 input"
+                      )}
+                    />
+                    <button
+                      onClick=${() => handleSendMessage()}
+                      disabled=${!input.value.trim() || isGenerating.value}
+                      class=${clsx(
+                        "p-3 action-button",
+                        "disabled:opacity-50 disabled:cursor-not-allowed active:scale-98"
+                      )}
+                    >
+                      ${icons.send}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              ${showSettings && html`
+                <${SettingsModal}
+                  mode=${showSettings}
+                  onClose=${() => setShowSettings(null)}
+                />
+              `}
+            </div>
+          </div>
+        `;
+      }
+
+      render(html`<${App} />`, document.getElementById('app'));
+		</script>
+	</body>
+</html>
