@@ -160,15 +160,18 @@
 		<script type="importmap">
 			{
         "imports": {
-          "preact": "https://esm.sh/preact@10.26.7",
-          "preact/":	"https://esm.sh/preact@10.26.7/",
-          "@preact/signals": "https://esm.sh/@preact/signals@2.0.5?external=preact",
-          "htm/preact": "https://esm.sh/htm@3.1.1/preact?external=preact",
-          "idb-keyval": "https://esm.sh/idb-keyval@6.2.2",
-          "xss": "https://esm.sh/xss@1.0.15",
-          "clsx": "https://esm.sh/clsx@2.1.1",
-          "dot-prop": "https://esm.sh/dot-prop@9.0.0",
-          "timeago": "https://esm.sh/timeago.js@4.0.2",
+          "preact": "https://unpkg.com/preact@10.26.7/dist/preact.mjs",
+          "preact/hooks": "https://unpkg.com/preact@10.26.7/hooks/dist/hooks.mjs",
+          "preact/":	"https://unpkg.com/preact@10.26.7/",
+          "@preact/signals": "https://unpkg.com/@preact/signals@2.0.5/dist/signals.mjs",
+          "@preact/signals-core": "https://unpkg.com/@preact/signals-core@1.9.0/dist/signals-core.mjs",
+          "htm": "https://unpkg.com/htm@3.1.1/dist/htm.mjs",
+          "htm/preact": "https://unpkg.com/htm@3.1.1/preact/index.mjs",
+          "idb-keyval": "https://unpkg.com/idb-keyval@6.2.2/dist/index.js",
+          "xss": "https://unpkg.com/xss@1.0.15/dist/xss.js",
+          "clsx": "https://unpkg.com/clsx@2.1.1/dist/clsx.mjs",
+          "dot-prop": "https://unpkg.com/dot-prop@9.0.0/index.js",
+          "timeago": "https://unpkg.com/timeago.js@4.0.2/esm/index.js",
           "streaming-md": "https://esm.sh/streaming-markdown@0.2.15",
           "xid": "https://esm.sh/xid-ts@1.1.4"
         }
@@ -235,7 +238,7 @@
       // Default settings
       const defaultSettings = {
         server: {
-          apiUrl: 'http://10.8.34.4:30000/v1/chat/completions',
+          apiUrl: 'http://10.8.34.28:30000/v1/chat/completions',
           apiKey: undefined,
           model: undefined,
           streaming: true,
